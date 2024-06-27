@@ -1,6 +1,6 @@
 # self_storage
 
-`.evn`:
+`.env`:
 
 ```bash
 TOKEN_TG=TOKEN_TELEGRAM
