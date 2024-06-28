@@ -20,7 +20,7 @@ def create_db():
                  status TEXT,
                  address TEXT,
                  FOREIGN KEY(user_id) REFERENCES users(user_id))''')
-    c.execute('''CREATE TABLE IF NOT EXIST clicked_users (
+    c.execute('''CREATE TABLE IF NOT EXISTS clicked_users (
                  click_id INTEGER PRIMARY KEY AUTOINCREMENT,
                  telegram_id INTEGER,
                  click_date TIMESTAMP

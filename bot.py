@@ -25,7 +25,7 @@ logging.basicConfig(
 def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
 
-    if context.args and context.args[0].startwith('ad'):
+    if context.args and context.args[0].startswith('ad'):
         handle_ad_click(update, context)
     if not get_user(user.id):
         add_user(user.id, user.username, None)
@@ -345,7 +345,7 @@ def admin_command(update: Update, context: CallbackContext) -> None:
 
 
 def handle_ad_click(update: Update, context: CallbackContext) -> None:
-    user = update.effective_user
+    user = update.effective_user.id
     click_date = datetime.now()
     update_clicked_users(user, click_date)
 
