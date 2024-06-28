@@ -5,7 +5,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, \
     CallbackQueryHandler, CallbackContext
 from dotenv import load_dotenv
 from database import create_db, add_user, get_user, create_order, get_orders, \
-    update_order_status, get_user_orders, set_admin
+    update_order_status, get_user_orders, set_admin, update_clicked_users
 from datetime import datetime, timedelta
 import logging
 
@@ -18,6 +18,9 @@ logging.basicConfig(
 
 def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
+
+    if context.args and context.args[0].startwith('ad'):
+        handle_ad_click(update, context)
     if not get_user(user.id):
         add_user(user.id, user.username, None)
     if get_user(user.id)[3]:
@@ -197,6 +200,11 @@ def admin_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text("Неверные данные для входа.")
 
+
+def handle_ad_click(update: Update, context: CallbackContext) -> None:
+    user = update.effective_user
+    click_date = datetime.now()
+    update_clicked_users(user, click_date)
 
 if __name__ == '__main__':
     main_menu_keyboard = [
