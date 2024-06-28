@@ -20,6 +20,12 @@ def create_db():
                  status TEXT,
                  address TEXT,
                  FOREIGN KEY(user_id) REFERENCES users(user_id))''')
+    c.execute('''CREATE TABLE IF NOT EXIST clicked_users (
+                 click_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 telegram_id INTEGER,
+                 click_date TIMESTAMP
+                 )
+              ''')
     c.execute('''CREATE TABLE IF NOT EXISTS addresses (
                  address_id INTEGER PRIMARY KEY AUTOINCREMENT,
                  address TEXT)''')
@@ -95,6 +101,26 @@ def set_admin(user_id):
     c.execute('UPDATE users SET is_admin = TRUE WHERE user_id = ?', (user_id,))
     conn.commit()
     conn.close()
+
+
+def update_clicked_users(telegram_id, click_date):
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute(
+        'INSERT INTO clicked_users (telegram_id, click_date) VALUES (?, ?)',
+        (telegram_id, click_date)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_clicked_users():
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    all_count = c.execute('SELECT COUNT(click_id) FROM clicked_users').fetchone()[0]
+    unique_count = c.execute('SELECT COUNT(DISTINCT telegram_id) FROM clicked_users').fetchone()[0]
+    conn.close()
+    return f'Общее количество кликнувших {all_count}, количество уникальных пользователей{unique_count}'
 
 
 def check_admin(user_id):

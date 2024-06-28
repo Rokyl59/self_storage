@@ -12,7 +12,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, \
 
 from database import create_db, add_user, get_user, create_order, get_orders, \
     update_order_status, get_user_orders, set_admin, check_admin, \
-    get_all_users, get_addresses, get_order_details
+    get_all_users, get_addresses, get_order_details, update_clicked_users
 from bot_functions import allowed_items, prohibited_items, storage_conditions
 
 
@@ -25,6 +25,8 @@ logging.basicConfig(
 def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
 
+    if context.args and context.args[0].startwith('ad'):
+        handle_ad_click(update, context)
     if not get_user(user.id):
         add_user(user.id, user.username, None)
     if get_user(user.id)[3]:
@@ -342,6 +344,12 @@ def admin_command(update: Update, context: CallbackContext) -> None:
         update.message.reply_text("Неверные данные для входа.")
 
 
+def handle_ad_click(update: Update, context: CallbackContext) -> None:
+    user = update.effective_user
+    click_date = datetime.now()
+    update_clicked_users(user, click_date)
+
+
 def get_users():
     users = get_all_users()
 
@@ -354,7 +362,6 @@ def get_users():
     ])
 
     return f"Список зарегистрированных пользователей:\n\n{users_text}"
-
 
 if __name__ == '__main__':
     main_menu_keyboard = [
