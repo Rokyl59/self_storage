@@ -5,7 +5,8 @@ def create_db():
     conn = sqlite3.connect('storage.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
-                 user_id INTEGER PRIMARY KEY,
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 user_id INTEGER,
                  username TEXT,
                  phone TEXT,
                  is_admin BOOLEAN DEFAULT FALSE)''')
@@ -14,9 +15,10 @@ def create_db():
                  order_id INTEGER PRIMARY KEY AUTOINCREMENT,
                  user_id INTEGER,
                  item_description TEXT,
-                 start_date TIMESTAMP,
-                 end_date TIMESTAMP,
+                 start_date DATETIME,
+                 end_date DATETIME,
                  status TEXT,
+                 address TEXT,
                  FOREIGN KEY(user_id) REFERENCES users(user_id))''')
     c.execute('''CREATE TABLE IF NOT EXIST clicked_users (
                  click_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,6 +26,9 @@ def create_db():
                  click_date TIMESTAMP
                  )
               ''')
+    c.execute('''CREATE TABLE IF NOT EXISTS addresses (
+                 address_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 address TEXT)''')
     conn.commit()
     conn.close()
 
@@ -49,14 +54,14 @@ def get_user(user_id):
     return user
 
 
-def create_order(user_id, item_description, start_date, end_date):
+def create_order(user_id, item_description, start_date, end_date, address):
     conn = sqlite3.connect('storage.db')
     c = conn.cursor()
     c.execute(
         ('INSERT INTO orders (user_id, item_description, '
-         'start_date, end_date, status) '
-         'VALUES (?, ?, ?, ?, ?)'),
-        (user_id, item_description, start_date, end_date, 'active'))
+         'start_date, end_date, status, address) '
+         'VALUES (?, ?, ?, ?, ?, ?)'),
+        (user_id, item_description, start_date, end_date, 'active', address))
     conn.commit()
     conn.close()
 
@@ -116,3 +121,39 @@ def get_clicked_users():
     unique_count = c.execute('SELECT COUNT(DISTINCT telegram_id) FROM clicked_users').fetchone()[0]
     conn.close()
     return f'Общее количество кликнувших {all_count}, количество уникальных пользователей{unique_count}'
+
+
+def check_admin(user_id):
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT is_admin FROM users WHERE user_id = ?', (user_id, ))
+    is_admin = c.fetchone()[0]
+    conn.close()
+    return is_admin
+
+
+def get_all_users():
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT user_id, username, is_admin FROM users')
+    users = c.fetchall()
+    conn.close()
+    return users
+
+
+def get_addresses():
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT * FROM addresses')
+    addresses = c.fetchall()
+    conn.close()
+    return addresses
+
+
+def get_order_details(order_id):
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT * FROM orders WHERE order_id = ?', (order_id,))
+    order = c.fetchone()
+    conn.close()
+    return order
