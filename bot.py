@@ -5,7 +5,8 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, \
     CallbackQueryHandler, CallbackContext
 from dotenv import load_dotenv
 from database import create_db, add_user, get_user, create_order, get_orders, \
-    update_order_status, get_user_orders, set_admin
+    update_order_status, get_user_orders, set_admin, check_admin, get_all_users
+from bot_functions import allowed_items, prohibited_items, storage_conditions
 from datetime import datetime, timedelta
 import logging
 
@@ -33,7 +34,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 def handle_main_menu(update: Update, context: CallbackContext) -> None:
-    if update.message.text == 'Арендовать бокс':
+    if update.message.text == '🗄️ Арендовать бокс':
         inline_keyboard = [
             [InlineKeyboardButton("Оформить аренду",
                                   callback_data='rent_form')],
@@ -44,7 +45,7 @@ def handle_main_menu(update: Update, context: CallbackContext) -> None:
         ]
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
         update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
-    elif update.message.text == 'Правила хранения':
+    elif update.message.text == '📜 Правила хранения':
         inline_keyboard = [
             [InlineKeyboardButton("Разрешённые вещи",
                                   callback_data='allowed_items')],
@@ -54,8 +55,12 @@ def handle_main_menu(update: Update, context: CallbackContext) -> None:
                                   callback_data='storage_conditions')]
         ]
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
-        update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
-    elif update.message.text == 'Адреса складов':
+        update.message.reply_text(
+            'Для удобства и безопасности наших клиентов и \
+             сотрудников, мы разработали правила хранения вещей. \
+             Пожалуйста, ознакомьтесь с ними перед тем, как \
+             арендовать склад.', reply_markup=reply_markup)
+    elif update.message.text == '📍 Адреса складов':
         inline_keyboard = [
             [InlineKeyboardButton("Показать на карте",
                                   callback_data='show_on_map')],
@@ -64,12 +69,22 @@ def handle_main_menu(update: Update, context: CallbackContext) -> None:
         ]
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
         update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
-    elif update.message.text == 'Связаться с нами':
+    elif update.message.text == '📞 Связаться с нами':
         inline_keyboard = [
             [InlineKeyboardButton("Электронная почта", callback_data='email')],
             [InlineKeyboardButton("Телефон", callback_data='phone')],
             [InlineKeyboardButton("Сообщение в телеграм",
                                   callback_data='telegram_message')]
+        ]
+        reply_markup = InlineKeyboardMarkup(inline_keyboard)
+        update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
+    elif (update.message.text == '🔧 Админка' and
+          check_admin(update.effective_user.id)):
+        inline_keyboard = [
+            [InlineKeyboardButton("Посмотреть пользователей",
+                                  callback_data='admin_show_user')],
+            [InlineKeyboardButton("Посмотреть просроченные заказы",
+                                  callback_data='admin_show_ticket')]
         ]
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
         update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
@@ -102,20 +117,12 @@ def button(update: Update, context: CallbackContext) -> None:
             orders_text = "У вас нет активных заказов."
         query.edit_message_text(text=f"Ваши заказы:\n{orders_text}")
     elif query.data == 'allowed_items':
-        query.edit_message_text(text=(
-            "Разрешённые вещи: снегоход, "
-            "лыжи, сноуборды и др.")
-        )
+        query.edit_message_text(text=allowed_items(), parse_mode='Markdown')
     elif query.data == 'prohibited_items':
-        query.edit_message_text(text=(
-            "Запрещённые вещи: жидкости, "
-            "огнеопасные материалы и др.")
-        )
+        query.edit_message_text(text=prohibited_items(), parse_mode='Markdown')
     elif query.data == 'storage_conditions':
-        query.edit_message_text(text=(
-            "Условия хранения: "
-            "поддержание температуры, влажности и т.д.")
-        )
+        query.edit_message_text(
+            text=storage_conditions(), parse_mode='Markdown')
     elif query.data == 'show_on_map':
         query.edit_message_text(text="Показать на карте: адреса складов.")
     elif query.data == 'address_list':
@@ -127,6 +134,8 @@ def button(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(text="Телефон: +7 123 456 78 90")
     elif query.data == 'telegram_message':
         query.edit_message_text(text="Сообщение в телеграм: @example")
+    elif query.data == 'admin_show_user':
+        query.edit_message_text(text=f"{get_users()}")
 
 
 def handle_text_messages(update: Update, context: CallbackContext) -> None:
@@ -146,7 +155,7 @@ def handle_text_messages(update: Update, context: CallbackContext) -> None:
             context.user_data.pop('expected_message')
         elif context.user_data['expected_message'] == 'free_pickup':
             update.message.reply_text(
-                'Информация о бесплатном вывозе была успешно отправлена!',
+                'Скоро с вами свяжется наш менеджер',
                 reply_markup=main_menu_markup
             )
             context.user_data.pop('expected_message')
@@ -157,8 +166,8 @@ def handle_text_messages(update: Update, context: CallbackContext) -> None:
 def send_reminders(context: CallbackContext):
     orders = get_orders()
     for order in orders:
-        user_id = order['user_id']
-        end_date = datetime.strptime(order['end_date'], '%Y-%m-%d')
+        user_id = order[1]
+        end_date = datetime.strptime(order[4], '%Y-%m-%d')
         now = datetime.now()
         if now > end_date - timedelta(days=30) and now <= end_date - timedelta(days=29):
             context.bot.send_message(
@@ -180,7 +189,7 @@ def send_reminders(context: CallbackContext):
             context.bot.send_message(
                 chat_id=user_id,
                 text="Ваша аренда закончилась. Вещи будут храниться по повышенному тарифу в течение 6 месяцев.")
-            update_order_status(order['order_id'], 'expired')
+            update_order_status(order[0], 'expired')
 
 
 def admin_command(update: Update, context: CallbackContext) -> None:
@@ -198,16 +207,30 @@ def admin_command(update: Update, context: CallbackContext) -> None:
         update.message.reply_text("Неверные данные для входа.")
 
 
+def get_users():
+    users = get_all_users()
+
+    if not users:
+        return "На данный момент в системе нет пользователей."
+
+    users_text = "\n\n".join([
+        f"ID: {user[0]}\nUsername: {user[1]}\nАдминистратор: {'Да' if user[2] else 'Нет'}"
+        for user in users
+    ])
+
+    return f"Список зарегистрированных пользователей:\n\n{users_text}"
+
+
 if __name__ == '__main__':
     main_menu_keyboard = [
-        ['Арендовать бокс', 'Правила хранения'],
-        ['Адреса складов', 'Связаться с нами']
+        ['🗄️ Арендовать бокс', '📜 Правила хранения'],
+        ['📍 Адреса складов', '📞 Связаться с нами']
     ]
 
     admin_menu_keyboard = [
-        ['Арендовать бокс', 'Правила хранения'],
-        ['Адреса складов', 'Связаться с нами'],
-        ['Админка']
+        ['🗄️ Арендовать бокс', '📜 Правила хранения'],
+        ['📍 Адреса складов', '📞 Связаться с нами'],
+        ['🔧 Админка']
     ]
 
     main_menu_markup = ReplyKeyboardMarkup(

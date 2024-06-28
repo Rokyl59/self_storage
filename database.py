@@ -90,3 +90,21 @@ def set_admin(user_id):
     c.execute('UPDATE users SET is_admin = TRUE WHERE user_id = ?', (user_id,))
     conn.commit()
     conn.close()
+
+
+def check_admin(user_id):
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT is_admin FROM users WHERE user_id = ?', (user_id, ))
+    is_admin = c.fetchone()[0]
+    conn.close()
+    return is_admin
+
+
+def get_all_users():
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT user_id, username, is_admin FROM users')
+    users = c.fetchall()
+    conn.close()
+    return users
