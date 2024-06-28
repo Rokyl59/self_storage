@@ -122,3 +122,12 @@ def get_addresses():
     addresses = c.fetchall()
     conn.close()
     return addresses
+
+
+def get_order_details(order_id):
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT * FROM orders WHERE order_id = ?', (order_id,))
+    order = c.fetchone()
+    conn.close()
+    return order
