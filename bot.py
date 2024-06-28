@@ -5,7 +5,8 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, \
     CallbackQueryHandler, CallbackContext
 from dotenv import load_dotenv
 from database import create_db, add_user, get_user, create_order, get_orders, \
-    update_order_status, get_user_orders, set_admin, check_admin, get_all_users
+    update_order_status, get_user_orders, set_admin, check_admin, \
+    get_all_users, get_addresses
 from bot_functions import allowed_items, prohibited_items, storage_conditions
 from datetime import datetime, timedelta
 import logging
@@ -35,16 +36,22 @@ def start(update: Update, context: CallbackContext) -> None:
 
 def handle_main_menu(update: Update, context: CallbackContext) -> None:
     if update.message.text == '🗄️ Арендовать бокс':
-        inline_keyboard = [
-            [InlineKeyboardButton("Оформить аренду",
-                                  callback_data='rent_form')],
-            [InlineKeyboardButton("Бесплатный вывоз",
-                                  callback_data='free_pickup')],
-            [InlineKeyboardButton("Список вещей",
-                                  callback_data='item_list')]
-        ]
+        addresses = get_addresses()
+        inline_keyboard = [[InlineKeyboardButton(
+            address[1],
+            callback_data=f'address_{address[0]}')] for address in addresses]
+        inline_keyboard.append([InlineKeyboardButton(
+            "Бесплатный вывоз", callback_data='free_pickup')])
+        inline_keyboard.append([InlineKeyboardButton(
+            "Мои заказы", callback_data='my_orders')])
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
-        update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
+        update.message.reply_text(
+            'Для аренды бокса выберите один из адресов ниже. '
+            'Или вы можете сделать бесплатный вызов, указав свой адрес, '
+            'но перед заказом прочитайте `Правила Хранения`\n\n'
+            'Примечание: `Габариты будет измерять доставщик.`',
+            reply_markup=reply_markup,
+            parse_mode='Markdown')
     elif update.message.text == '📜 Правила хранения':
         inline_keyboard = [
             [InlineKeyboardButton("Разрешённые вещи",
@@ -61,14 +68,10 @@ def handle_main_menu(update: Update, context: CallbackContext) -> None:
              Пожалуйста, ознакомьтесь с ними перед тем, как \
              арендовать склад.', reply_markup=reply_markup)
     elif update.message.text == '📍 Адреса складов':
-        inline_keyboard = [
-            [InlineKeyboardButton("Показать на карте",
-                                  callback_data='show_on_map')],
-            [InlineKeyboardButton("Список адресов",
-                                  callback_data='address_list')]
-        ]
-        reply_markup = InlineKeyboardMarkup(inline_keyboard)
-        update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
+        addresses = get_addresses()
+        addresses_text = "\n".join([f"{index + 1}. {address[1]}"
+                                    for index, address in enumerate(addresses)])
+        update.message.reply_text(f"Список адресов складов:\n{addresses_text}")
     elif update.message.text == '📞 Связаться с нами':
         inline_keyboard = [
             [InlineKeyboardButton("Электронная почта", callback_data='email')],
@@ -94,28 +97,38 @@ def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
 
-    if query.data == 'rent_form':
-        query.edit_message_text(text=(
-            "Введите описание вещей, которые вы хотите хранить, "
-            "и срок аренды (например, 'Снегоход, лыжи - 3 месяца'")
+    if query.data.startswith('address_'):
+        address_id = query.data.split('_')[1]
+        addresses = get_addresses()
+        address = next((addr[1] for addr in addresses
+                        if addr[0] == int(address_id)), "Неизвестный адрес")
+        query.edit_message_text(
+            text=f"Вы выбрали адрес склада: {address}. "
+                 "Введите описание вещей, которые вы хотите хранить, "
+                 "и срок аренды (например, 'Снегоход, лыжи - 3 месяца')."
         )
         context.user_data['expected_message'] = 'rent_form'
+        context.user_data['address'] = address
     elif query.data == 'free_pickup':
-        query.edit_message_text(text=(
-            "Информация о бесплатном вывозе. "
-            "Укажите адрес и контактный номер телефона.")
+        query.edit_message_text(
+            text=("Предполагаемая цена - 1000 рублей в месяц "
+                  "Пожалуйста, введите ваш адрес и контактный номер телефона. "
+                  "Доставщик свяжется с вами для подтверждения. "
+                  "Пример: '`ул. Тургенева, д. 10, тел. +79876543210`'"),
+            parse_mode='Markdown'
         )
         context.user_data['expected_message'] = 'free_pickup'
-    elif query.data == 'item_list':
+    elif query.data == 'my_orders':
         user_id = query.from_user.id
         orders = get_user_orders(user_id)
         if orders:
             orders_text = "\n".join([
-                f"Заказ {order[0]}: {order[2]}, срок аренды до {order[4]}"
+                f"`Заказ {order[0]}:` {order[2]}, срок аренды до `{order[4]}` на складе: `{order[6]}`\n"
                 for order in orders])
         else:
             orders_text = "У вас нет активных заказов."
-        query.edit_message_text(text=f"Ваши заказы:\n{orders_text}")
+        query.edit_message_text(text=f"Ваши заказы:\n{orders_text}",
+                                parse_mode='Markdown')
     elif query.data == 'allowed_items':
         query.edit_message_text(text=allowed_items(), parse_mode='Markdown')
     elif query.data == 'prohibited_items':
@@ -147,15 +160,18 @@ def handle_text_messages(update: Update, context: CallbackContext) -> None:
             end_date = (
                 datetime.now() + timedelta(days=int(duration.split()[0]) * 30)
                 ).strftime('%Y-%m-%d')
-            create_order(user.id, item_description, start_date, end_date)
+            address = context.user_data.get('address', 'Неизвестный адрес')
+            create_order(
+                user.id, item_description, start_date, end_date, address)
             update.message.reply_text(
                 'Ваш заказ был успешно создан!',
                 reply_markup=main_menu_markup
             )
             context.user_data.pop('expected_message')
+            context.user_data.pop('address')
         elif context.user_data['expected_message'] == 'free_pickup':
             update.message.reply_text(
-                'Скоро с вами свяжется наш менеджер',
+                'Скоро с вами свяжется наш доставщик',
                 reply_markup=main_menu_markup
             )
             context.user_data.pop('expected_message')

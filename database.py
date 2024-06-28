@@ -5,7 +5,8 @@ def create_db():
     conn = sqlite3.connect('storage.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
-                 user_id INTEGER PRIMARY KEY,
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 user_id INTEGER,
                  username TEXT,
                  phone TEXT,
                  is_admin BOOLEAN DEFAULT FALSE)''')
@@ -14,10 +15,14 @@ def create_db():
                  order_id INTEGER PRIMARY KEY AUTOINCREMENT,
                  user_id INTEGER,
                  item_description TEXT,
-                 start_date TEXT,
-                 end_date TEXT,
+                 start_date DATETIME,
+                 end_date DATETIME,
                  status TEXT,
+                 address TEXT,
                  FOREIGN KEY(user_id) REFERENCES users(user_id))''')
+    c.execute('''CREATE TABLE IF NOT EXISTS addresses (
+                 address_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 address TEXT)''')
     conn.commit()
     conn.close()
 
@@ -43,14 +48,14 @@ def get_user(user_id):
     return user
 
 
-def create_order(user_id, item_description, start_date, end_date):
+def create_order(user_id, item_description, start_date, end_date, address):
     conn = sqlite3.connect('storage.db')
     c = conn.cursor()
     c.execute(
         ('INSERT INTO orders (user_id, item_description, '
-         'start_date, end_date, status) '
-         'VALUES (?, ?, ?, ?, ?)'),
-        (user_id, item_description, start_date, end_date, 'active'))
+         'start_date, end_date, status, address) '
+         'VALUES (?, ?, ?, ?, ?, ?)'),
+        (user_id, item_description, start_date, end_date, 'active', address))
     conn.commit()
     conn.close()
 
@@ -108,3 +113,12 @@ def get_all_users():
     users = c.fetchall()
     conn.close()
     return users
+
+
+def get_addresses():
+    conn = sqlite3.connect('storage.db')
+    c = conn.cursor()
+    c.execute('SELECT * FROM addresses')
+    addresses = c.fetchall()
+    conn.close()
+    return addresses
