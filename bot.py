@@ -17,9 +17,9 @@ logging.basicConfig(
 
 
 def start(update: Update, context: CallbackContext) -> None:
-    user = update.effective_user
+    user = update.effective_user.id
 
-    if context.args and context.args[0].startwith('ad'):
+    if context.args and context.args[0].startswith('ad'):
         handle_ad_click(update, context)
     if not get_user(user.id):
         add_user(user.id, user.username, None)
