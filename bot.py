@@ -27,21 +27,51 @@ def start(update: Update, context: CallbackContext) -> None:
 
     if context.args and context.args[0].startswith('ad'):
         handle_ad_click(update, context)
-    if not get_user(user.id):
-        add_user(user.id, user.username, None)
-    if get_user(user.id)[3]:
-        update.message.reply_text(
-            fr'Привет, `{user.username}`!',
-            reply_markup=admin_menu_markup,
-            parse_mode='Markdown'
-        )
-    else:
-        update.message.reply_text(
-            fr'Привет, `{user.username}`!',
-            reply_markup=main_menu_markup,
-            parse_mode='Markdown'
-        )
+        return
 
+    user_data = get_user(user.id)
+
+    if not user_data:
+        context.user_data['registration'] = {}
+        update.message.reply_text("Вы не зарегистрированы в системе, ответьте на следующие вопросы:\nВведите свое ФИО:")
+        return
+
+    update.message.reply_text(f"Привет, {user.first_name}!", reply_markup=main_menu_markup)
+
+def handle_registration(update: Update, context: CallbackContext) -> None:
+    user = update.effective_user
+    url_agreement = 'https://ktzn.gov.spb.ru/media/uploads/userfiles/2022/07/27/%D1%84%D0%BE%D1%80%D0%BC%D0%B0_%D1%81%D0%BE%D0%B3%D0%BB%D0%B0%D1%81%D0%B8%D1%8F.docx'
+    if 'registration' in context.user_data:
+        registration = context.user_data['registration']
+
+        if 'full_name' not in registration:
+            registration['full_name'] = update.message.text
+            update.message.reply_text(f"{user.first_name}, Напишите свой телефон для связи:")
+            return
+
+        if 'phone' not in registration:
+            registration['phone'] = update.message.text
+            update.message.reply_text("Введите свой email:")
+            return
+
+        if 'email' not in registration:
+            registration['email'] = update.message.text
+
+            # Вывод данных для подтверждения
+            update.message.reply_text(
+                f"Проверьте свои данные:\n\n"
+                f"ФИО: {registration['full_name']}\n"
+                f"Телефон: {registration['phone']}\n"
+                f"Email: {registration['email']}\n\n"
+                f"Согласно закону РФ №152-ФЗ «О персональных данных»\n"
+                f"отвечая ДА Вы соглашаетесь с обработкой Ваших персональных данных.\n"
+                f"Вот [ссылка]({url_agreement}) на соглашение: ", parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("ДА", callback_data='confirm'),
+                     InlineKeyboardButton("НЕТ", callback_data='decline')]
+                ])
+            )
+            return
 
 def handle_main_menu(update: Update, context: CallbackContext) -> None:
 
@@ -110,6 +140,18 @@ def handle_main_menu(update: Update, context: CallbackContext) -> None:
 def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
+
+    if query.data == 'confirm':
+        registration = context.user_data['registration']
+        add_user(query.from_user.id, registration['full_name'], registration['phone'], registration['email'])
+        query.edit_message_text("Приветствуем в нашем сервисе. рады Вам помочь с хранением вещей и предметов.")
+        query.message.reply_text(f"Привет, {query.from_user.username}!", reply_markup=main_menu_markup)
+        context.user_data.pop('registration', None)
+
+    elif query.data == 'decline':
+        query.edit_message_text("К сожалению, мы не можем продолжить работать с Вами.")
+        context.user_data.pop('registration', None)
+        return
 
     if query.data.startswith('address_'):
         address_id = query.data.split('_')[1]
@@ -224,6 +266,12 @@ def button(update: Update, context: CallbackContext) -> None:
 
 def handle_text_messages(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
+    user = update.effective_user
+
+    if 'registration' in context.user_data:
+        handle_registration(update, context)
+    else:
+        handle_main_menu(update, context)
 
     if 'expected_message' in context.user_data:
 

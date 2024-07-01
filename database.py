@@ -9,6 +9,7 @@ def create_db():
                  user_id INTEGER,
                  username TEXT,
                  phone TEXT,
+                 email TEXT,
                  is_admin BOOLEAN DEFAULT FALSE)''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS orders (
@@ -33,14 +34,14 @@ def create_db():
     conn.close()
 
 
-def add_user(user_id, username, phone):
+def add_user(user_id, username, phone, email):
     conn = sqlite3.connect('storage.db')
     c = conn.cursor()
     c.execute(
         ('INSERT INTO users (user_id, '
-         'username, phone) '
-         'VALUES (?, ?, ?)'),
-        (user_id, username, phone))
+         'username, phone, email) '
+         'VALUES (?, ?, ?, ?)'),
+        (user_id, username, phone, email))
     conn.commit()
     conn.close()
 
