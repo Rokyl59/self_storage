@@ -329,6 +329,11 @@ def send_reminders(context: CallbackContext):
             update_order_status(order[0], 'expired')
 
 
+def send_qr_code(update: Update, context: CallbackContext) -> None:
+    user = update.effective_user
+    context.bot.send_document(chat_id=user, document=open('qr_code\\qr_code', rb))
+
+
 def admin_command(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     if not get_user(user.id):
@@ -362,6 +367,7 @@ def get_users():
     ])
 
     return f"Список зарегистрированных пользователей:\n\n{users_text}"
+
 
 if __name__ == '__main__':
     main_menu_keyboard = [
