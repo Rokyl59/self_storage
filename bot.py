@@ -23,21 +23,30 @@ logging.basicConfig(
 
 
 def start(update: Update, context: CallbackContext) -> None:
-    user = update.effective_user.id
-
     if context.args and context.args[0].startswith('ad'):
         handle_ad_click(update, context)
-    if not get_user(user.id):
-        add_user(user.id, user.username, None)
-    if get_user(user.id)[3]:
+    if not get_user(update.effective_user.id):
+        add_user(
+            update.effective_user.id, update.effective_user.username, None
+        )
+    if get_user(update.effective_user.id)[3]:
         update.message.reply_text(
-            fr'Привет, `{user.username}`!',
+            "Приветствуем, уважаемый администратор!",
             reply_markup=admin_menu_markup,
             parse_mode='Markdown'
         )
     else:
+        text = '''
+Привет, дорогой пользователь! 🙋‍♂️
+
+Добро пожаловать в наше приложение для хранения ваших личных вещей. 📦
+Представьте, что у вас есть специальное место, где вы можете хранить все самое важное и ценное - фотографии, документы, сувениры, коллекционные предметы и многое другое. 🗂️ Все ваши вещи будут в одном месте, в полной безопасности и под вашим контролем. 🔒
+Наше приложение позволяет создавать виртуальные «ящики» для хранения ваших вещей.
+
+Давайте начнем организовывать ваше личное хранилище прямо сейчас! 🚀 Уверен, вы по достоинству оцените все возможности нашего приложения. 😊
+            '''
         update.message.reply_text(
-            fr'Привет, `{user.username}`!',
+            text,
             reply_markup=main_menu_markup,
             parse_mode='Markdown'
         )
@@ -395,12 +404,18 @@ if __name__ == '__main__':
     updater = Updater(TOKEN_TG, use_context=True)
     dispatcher = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("admin", admin_command))
-
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command,
-                                          handle_text_messages))
-    dispatcher.add_handler(CallbackQueryHandler(button))
+    dispatcher.add_handler(
+        CommandHandler("start", start)
+    )
+    dispatcher.add_handler(
+        CommandHandler("admin", admin_command)
+    )
+    dispatcher.add_handler(
+        MessageHandler(Filters.text & ~Filters.command, handle_text_messages)
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(button)
+    )
 
     job_queue = updater.job_queue
     job_queue.run_repeating(send_reminders, interval=86400, first=0)
