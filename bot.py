@@ -56,37 +56,40 @@ def handle_main_menu(update: Update, context: CallbackContext) -> None:
 
     if update.message.text == '🗄️ Арендовать бокс':
         addresses = get_addresses()
-        inline_keyboard = [[InlineKeyboardButton(
-            address[1],
-            callback_data=f'address_{address[0]}')] for address in addresses]
-        inline_keyboard.append([InlineKeyboardButton(
-            "Бесплатный вывоз", callback_data='free_pickup')])
-        inline_keyboard.append([InlineKeyboardButton(
-            "Мои заказы", callback_data='my_orders')])
+        inline_keyboard = [
+            [InlineKeyboardButton(address[1], callback_data=f'address_{address[0]}')]
+            for address in addresses
+        ]
+        inline_keyboard.extend([
+            [InlineKeyboardButton("🚚 Бесплатный вывоз", callback_data='free_pickup')],
+            [InlineKeyboardButton("📋 Мои заказы", callback_data='my_orders')]
+        ])
+
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
-        update.message.reply_text(
-            'Для аренды бокса выберите один из адресов ниже. '
-            'Или вы можете сделать бесплатный вызов, указав свой адрес, '
-            'но перед заказом прочитайте `Правила Хранения`\n\n'
-            'Примечание: `Габариты будет измерять доставщик.`',
-            reply_markup=reply_markup,
-            parse_mode='Markdown')
+
+        text = (
+                "🗃️ Для аренды бокса выберите один из адресов ниже."
+                "Или вы можете сделать 🆓 бесплатный вызов, указав свой адрес, "
+                "но перед заказом прочитайте `Правила Хранения`.\n\n"
+                "Примечание: `Габариты будет измерять 👨‍💼 доставщик.`"
+        )
+        update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     elif update.message.text == '📜 Правила хранения':
         inline_keyboard = [
-            [InlineKeyboardButton("Разрешённые вещи",
+            [InlineKeyboardButton("🆗 Разрешённые вещи",
                                   callback_data='allowed_items')],
-            [InlineKeyboardButton("Запрещённые вещи",
+            [InlineKeyboardButton("⛔️ Запрещённые вещи",
                                   callback_data='prohibited_items')],
-            [InlineKeyboardButton("Условия хранения",
+            [InlineKeyboardButton("🏪 Условия хранения",
                                   callback_data='storage_conditions')]
         ]
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
         update.message.reply_text(
-            'Для удобства и безопасности наших клиентов и \
+            '🔍Для удобства и безопасности наших клиентов и \
              сотрудников, мы разработали правила хранения вещей. \
              Пожалуйста, ознакомьтесь с ними перед тем, как \
-             арендовать склад.', reply_markup=reply_markup)
+             арендовать склад. 📋', reply_markup=reply_markup)
 
     elif update.message.text == '📍 Адреса складов':
         addresses = get_addresses()
